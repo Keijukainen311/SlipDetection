@@ -1,8 +1,21 @@
 services:
     redis:
+        container_name: redis
         image: redis:latest
         ports:
-            - 6379:6379
+            - 172.18.0.1:6379:6379
         volumes:
             - ./config/redis.conf:/redis.conf
         command: redis-server --requirepass test
+
+    grafana:
+        container_name: grafana
+        image: grafana/grafana:latest
+        ports:
+            - "3000:3000"
+        environment:
+            - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+            - GF_AUTH_ANONYMOUS_ENABLED=true
+            - GF_AUTH_BASIC_ENABLED=false
+            - GF_ENABLE_GZIP=true
+            - GF_INSTALL_PLUGINS=redis-datasource
