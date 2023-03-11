@@ -16,7 +16,3 @@ def connect():
         print(e)
         return None
 
-
-
-
-    
