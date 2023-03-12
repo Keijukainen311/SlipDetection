@@ -11,10 +11,9 @@ import redis_connector as connector
 ### definitions
 mean_velocity_f = 1  # mean velocity of the rolled material exiting the process in m/s
 #decreade mean vel r to reduce slip
-mean_velocity_r =  0.78  # max velocity of the roll in m/s
+mean_velocity_r =  0.7  # max velocity of the roll in m/s
 max_slip = 0.1 #max slip (delta)
 stream_name = "mubea_trb"
-
 
 class Measurement:
     def __init__(self, f: float, r: float, temperature_machine: float, temperature_material: float):
