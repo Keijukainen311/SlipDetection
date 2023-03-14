@@ -1,23 +1,42 @@
 # SlipDetection
 
-First install requirements...
+## Run container
+Go to this directory and run
+```
+docker-compose up
+```
+Or run the container by hand...
 
-Next start the docker container (e.g. with the docker-compose). 
-Check the configuration in the redis connector! That may be different...
+## Start Simulating Data
 
-The mubeaSlipSimulator will create data, vizualize the data within the terminal and write the data into a redis stream
+First install requirements..
+```
+pip install requirements.txt
+```
 
-Alert.py read the data from the stream and gives an alert, if a slip occurs
+Check the configuration in the **redis_connector.py**! That may be different, to the settings in this script!
+
+The ***mubeaSlipSimulator.py** will create data, **monitor.py** vizualize the data within the terminal and write the data into a redis stream.
+
+**alert.py** read the data from the stream and gives an alert, if a slip occurs
+
+**get_Data.py** has different functions to read data from the stream (print the stream, print the last values, print different windows)
+
+**size.py** displays the size of the redis instance within a specific time period and wirte it into a excel file.
 
 
 ## Grafana configuration
-Einrichtung der Verbindung
-Einstellungen -> Plugin -> Redis -> ggf. installieren, ist bereits installiert wenn die Docker Compose von hier genutzt wurde -> Create Data Source
-Hier muss die Adresse und das Password gesetzt werden. Entweder analog zur Docker Compose hier oder wie selbst gesetzt.
+Make sure the Redis Plugin is installed
+If u are using this docker-compose the redis plugins are already installed, otherwise install it manually:
+Settings -> Plugin -> Redis -> redis-datasource & redis-app
 
-Grafana hat z.T. Probleme sich mit Redis zu verbinden. Die Adresse kann sein: 
-- localhost:6379
-- IP-Adresse der Docker Compose : Port 
-- host.docker.internal:6379
+Connect to redis
+Now choose the redis-datasource and create a new data source. 
+There are different ways to connect to the redis data source (as) sometimes the address don't work properly..):
+- localhost:6379 (or whatever port your redis instance is using...)
+- IP-Address mentioned in the Docker-Compose : Port of redis instance 
+- host.docker.internal:Port of redis instance
+- Run in commandline: docker run --rm alpine nslookup host.docker.internal
+and use the ip address mentioned then...
 
-Danach können Dashboards mit den Daten erstellt werden
+The connection is now running. You can create different kind of 

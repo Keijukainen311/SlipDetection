@@ -1,7 +1,7 @@
 import redis
 #todo - change the host, port and db to your system settings
 ###redis connection parameters###
-redis_host = "127.0.0.1"
+redis_host = "172.18.0.1"
 redis_port = 6379
 redis_db = 0
 redis_password = "test" ###really bad idea

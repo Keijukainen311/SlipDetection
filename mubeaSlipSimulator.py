@@ -1,12 +1,10 @@
-import os
 import time
-from datetime import datetime
 from threading import Timer, Thread
 
 import numpy as np
-import plotext as plt
 
 import redis_connector as connector
+import monitorTerminal
 
 ### definitions
 mean_velocity_f = 1  # mean velocity of the rolled material exiting the process in m/s
@@ -16,12 +14,16 @@ max_slip = 0.1 #max slip (delta)
 stream_name = "mubea_trb"
 
 class Measurement:
-    def __init__(self, f: float, r: float, temperature_machine: float, temperature_material: float):
+    def __init__(self, f: float, r: float, temperature_machine: float, temperature_material: float, m2_f: float, m2_r: float, m3_f: float, m3_r: float):
         self.velocity_f = f
         self.velocity_r = r
         self.date = datetime.now()
         self.temp_machine = temperature_machine
         self.temp_mat = temperature_material
+        self.m2_velocity_f = m2_f
+        self.m2_velocity_r = m2_r
+        self.m3_velocity_f = m3_f
+        self.m3_velocity_r = m3_r
 
     def __str__(self):
         return "Measurement taken " + self.date.strftime("%m/%d/%Y, %H:%M:%S:%f") + " - velocity_f: " + str(self.velocity_f) + " - velocity_r: " + str(self.velocity_r)
@@ -43,7 +45,10 @@ class MeasurementStore(object):
         with self._redisClient:
             self._redisClient.xadd(self._streamName, {"date": str(m.date), "velocity_f": str(m.velocity_f),
                                                       "velocity_r": str(m.velocity_r), "temperature_machine": str(m.temp_machine),
-                                                      "temperature_material": str(m.temp_mat)})
+                                                      "temperature_material": str(m.temp_mat), "m2_velocity_f": str(m.m2_velocity_f),
+                                                      "m2_velocity_r": str(m.m2_velocity_r), "m3_velocity_f": str(m.m3_velocity_f),
+                                                      "m3_velocity_r": str(m.m3_velocity_r)
+                                                      })
             return True
         return False
 
@@ -72,16 +77,19 @@ class SimulationThread(Thread):
 
     def simulateMeasurement(self):
         num_r = np.random.default_rng().normal(mean_velocity_r, 0.1, size=None)
-        num_f = np.random.uniform(low=max(mean_velocity_f, num_r), high=min(mean_velocity_f, num_r), size=None) # this could be made more meaningful
+        num_f = np.random.uniform(low=max(mean_velocity_f, num_r), high=min(mean_velocity_f, num_r + max_slip), size=None) 
+        m2_num_r = np.random.default_rng().normal(mean_velocity_r, 0.1, size=None)
+        m2_num_f = np.random.uniform(low=max(mean_velocity_f, m2_num_r), high=min(mean_velocity_f, m2_num_r + max_slip), size=None) 
+        m3_num_r = np.random.default_rng().normal(mean_velocity_r, 0.1, size=None)
+        m3_num_f = np.random.uniform(low=max(mean_velocity_f, m3_num_r), high=min(mean_velocity_f, m3_num_r + max_slip), size=None) 
+
         # Generate correlated variables
-        temperature_machine = np.random.normal(25, 5)
-        temperature_material = np.random.normal(20, 3)
+        temperature_machine = np.random.normal(25, 1)
+        temperature_material = np.random.normal(20, 1)
         speed_rolls = (num_f - num_r) * 10 + 100  #linear relation
 
-        m = Measurement(num_f, num_r, temperature_machine, temperature_material) #, temperature_machine, temperature_material, speed_rolls)
+        m = Measurement(num_f, num_r, temperature_machine, temperature_material, m2_num_f, m2_num_r, m3_num_f, m3_num_r) 
         return m
-   #     m = Measurement(num_f, num_r)
-    #    return m
 
     # function executed in a new thread
     def run(self):
@@ -92,44 +100,10 @@ class SimulationThread(Thread):
 
 def simulateRuns(runs: int, delay_ms: int, s: MeasurementStore):
     for i in range(runs):
-        t = SimulationThread(delay_ms / 1000)
+        t = SimulationThread(delay_ms) # / 1000) #hier zu Demo Zwecke etwas runter gesetzt....
         t.start()
         t.join()
         s.store(t.value)
-
-def monitorRuns(runs: int, d: MeasurementStore, refresh_ms: int):
-    labels = []
-    velocities_f = []
-    velocities_r = []
-    delta = []
-
-    values = d.getLast(runs)
-    for v in values:
-        id, data = v
-        labels.append(datetime.strptime(data.get('date'), "%Y-%m-%d %H:%M:%S.%f"))
-        velocities_f.append(float(data.get('velocity_f')))
-        velocities_r.append(float(data.get('velocity_r')))
-
-        d = float(data.get('velocity_f')) - float(data.get('velocity_r'))
-        delta.append(d)
-
-    title = 'Last Runs'
-    os.system('cls' if os.name == 'nt' else 'clear')
-    plt.clt()
-    plt.clf()
-
-    dates = plt.datetimes_to_string(labels)
-
-    # Set the color of each line based on the velocity_f and velocity_r values
-    line_color = "red" if velocities_f[-1] < velocities_r[-1] else "blue"
-    plt.plot(delta, label="delta", yside="right", fillx=True, color="gray")
-    plt.plot(velocities_f, label="f", yside="left", color=line_color)
-    plt.plot(velocities_r, label="r", yside="left", color=line_color)
-
-    plt.interactive(True)
-    plt.show()
-
-    time.sleep(refresh_ms/1000)
 
 def main():
     client = connector.connect()
@@ -137,17 +111,19 @@ def main():
         client.ping()
         store = MeasurementStore(client, stream_name)
         runs = 500000
-        test = Timer(1, simulateRuns, args=(runs, 50, store))
+        test = Timer(1, simulateRuns, args=(runs, 1, store)) # hier den Delay von 50 auf 1 gesetzt...
         test.start()
+
 """
-#Raus, weil ich geb einen scheiß auf den Monitor...
+#Dont want the monitor right now...
         try:
             while True:
-                monitorRuns(20, store, 200)
+                monitorTerminal.monitorRuns(20, store, 200)
 
         except KeyboardInterrupt:
             pass
 """
+
 if __name__ == "__main__":
     main()
 
